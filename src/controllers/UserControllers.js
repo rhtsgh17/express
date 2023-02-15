@@ -1,12 +1,28 @@
 const UserModel = require("../models").user;
-
-async function getListUser(req, res) {
+const ForgotPasswordModel = require("../models").password;
+const resetPasswordDgnEmailModel = require("../models").resetPasswordDgnEmail;
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+const sendEmailHandle = require("../mail");
+const crypto = require("crypto");
+const dayjs = require("dayjs");
+require("dotenv").config;
+async function register(req, res) {
   try {
-    const users = await UserModel.findAll();
+    const payload = req.body;
+    const { nama, email, password } = payload;
+
+    let hashPassword = await bcrypt.hashSync(password, 10);
+
+    await UserModel.create({
+      nama,
+      email,
+      password: hashPassword,
+    });
+
     res.json({
       status: "Success",
-      msg: "Data User Di temukan",
-      data: users,
+      msg: "Register Berhasil",
     });
   } catch (err) {
     res.status(403).json({
@@ -17,60 +33,10 @@ async function getListUser(req, res) {
   }
 }
 
-// create data ke database
-
-async function createUser(req, res) {
+async function login(req, res) {
   try {
     const payload = req.body;
-    let { nama, email, tempatLahir, tanggalLahir } = payload;
-    await UserModel.create({
-      nama: nama,
-      email: email,
-      isActive: true,
-      tempatLahir: tanggalLahir,
-      tanggalLahir: tanggalLahir,
-    });
-    res.status(201).json({
-      status: "success",
-      msg: "Berhasil Tersimpan",
-    });
-  } catch (err) {
-    res.status(403).json({
-      status: "fail",
-      msg: "Ada Kesalahan",
-    });
-  }
-}
-
-async function getDetailUserById(req, res) {
-  try {
-    const { id } = req.params;
-
-    const user = await UserModel.findByPk(id);
-
-    if (user === null) {
-      res.status(404).json({
-        status: "Fail",
-        msg: "User Tidak Ditemukan",
-      });
-    }
-
-    res.json({
-      status: "Sucess",
-      msg: "User Berhasil",
-      data: user,
-    });
-  } catch (err) {
-    res.status(403).json({
-      status: "fail",
-      msg: "Ada Kesalahan",
-    });
-  }
-}
-
-async function getDetailUserByParams(req, res) {
-  try {
-    const { email } = req.params;
+    const { email, password } = payload;
 
     const user = await UserModel.findOne({
       where: {
@@ -79,113 +45,191 @@ async function getDetailUserByParams(req, res) {
     });
 
     if (user === null) {
-      res.status(404).json({
+      return res.status(422).json({
         status: "Fail",
-        msg: "User Tidak Ditemukan",
+        msg: "Email tidak ditemukan, Silahkan register",
       });
     }
 
+    if (password === null) {
+      return res.status(422).json({
+        status: "Fail",
+        msg: "Email dan password tidak ditemukan",
+      });
+    }
+
+    const verify = await bcrypt.compareSync(password, user.password);
+
+    if (verify === false) {
+      return res.status(422).json({
+        status: "Fail",
+        msg: "Email dan passwor tidak ditemukan",
+      });
+    }
+
+    const token = jwt.sign(
+      {
+        id: user?.id,
+        email: user?.email,
+        nama: user?.nama,
+      },
+
+      process.env.JWT_SECRET,
+
+      {
+        expiresIn: "7d",
+      }
+    );
+
     res.json({
-      status: "Sucess",
-      msg: "User Berhasil",
+      status: "Success",
+      msg: "Login Berhasil",
+      token: token,
       data: user,
     });
   } catch (err) {
     res.status(403).json({
       status: "fail",
       msg: "Ada Kesalahan",
-    });
-  }
-}
-
-async function updateUser(req, res) {
-  try {
-    const { id } = req.params;
-    const payload = req.body;
-    const { nama, tempatLahir, tanggalLahir } = payload;
-    const user = await UserModel.findByPk(id);
-
-    if (user === null) {
-      res.status(404).json({
-        status: "Fail",
-        msg: "User Tidak Ditemukan",
-      });
-    }
-    // await UserModel.update(
-    //   {
-    //     nama: nama,
-    //     tempatLahir: tempatLahir,
-    //     tanggalLahir : tanggalLahir,
-    //   },
-    //   {
-    //     where: {
-    //       id: id,
-    //     },
-    //   }
-    // );
-
-    await UserModel.update(
-      {
-        nama,
-        tempatLahir,
-        tanggalLahir,
-      },
-      {
-        where: {
-          id: id,
-        },
-      }
-    );
-
-    res.json({
-      status: "Success",
-      msg: "Update User Berhasil",
-      id: id,
-    });
-  } catch (err) {
-    res.status(403).json({
-      status: "fail",
-      msg: "Ada Kesalahan",
       err: err,
     });
   }
 }
 
-async function deleteUser(req,res) {
+async function lupaPassword(req, res) {
   try {
-    const {id} = req.params;
+    const { email } = req.body;
 
-    const user = await UserModel.findByPk(id);
-
-    if (user === null) {
-      res.status(404).json({
-        status: "Fail",
-        msg: "User Tidak Ditemukan",
-      });
-    }
-    await UserModel.destroy({
+    //cek apakah user dengan email tsb terdaftar
+    const user = await UserModel.findOne({
       where: {
-        id : id,
-      }
-    })
-    res.json({
-      status: "Success",
-      msg: "Delete User Berhasil",
+        email: email,
+      },
     });
+    //jika tidak terdaftar berikan response dengan msg email tidak terdaftar
+
+    if (user === null) {
+      return res.status(422).json({
+        status: "Fail",
+        msg: "Email tidak ditemukan, Silahkan gunakan email yg terdaftar",
+      });
+    }
+    // cek apakah token sudah pernah dibuat pada user tsb di table forgot password
+    const currentToken = await ForgotPasswordModel.findOne({
+      where: {
+        userId: user.id,
+      },
+    });
+    // jika ada hapus token lama
+
+    if (currentToken !== null) {
+      await ForgotPasswordModel.destroy({
+        where: {
+          userId: user.id,
+        },
+      });
+    }
+    // jika belum buat token
+
+    const token = crypto.randomBytes(32).toString("hex"); // membuat token dgn string acak
+    const date = new Date();
+    const expire = date.setHours(date.getHours() + 1);
+
+    await ForgotPasswordModel.create({
+      userId: user.id,
+      token: token,
+      expireDate: dayjs(expire).format("yyyy,zzzzz,aaaaaaaaa"),
+    });
+
+    const context = {
+      link: `${process.env.MAIL_CLIENT_URL}/reset-password/${user.id}/${token}`,
+    };
+    const sendEmail = await sendEmailHandle(
+      email,
+      "lupa password",
+      "lupaPassword",
+      context
+    );
+    if (sendEmail == "Success") {
+      res.json({
+        status: "Success",
+        msg: "silahkan check email",
+      });
+    } else {
+      res.status(403).json({
+        status: "fail",
+        msg: "Gunakan email yg terdaftar",
+      });
+    }
   } catch (err) {
+    console.log(err);
     res.status(403).json({
       status: "fail",
       msg: "Ada Kesalahan",
+      err,
+    });
+  }
+}
+
+async function resetPassword(req, res) {
+  try {
+    let { newPassword } = req.body;
+    let { userId, token } = req.params;
+    const currentToken = await ForgotPasswordModel.findOne({
+      where: { userId: userId, token: token },
+    });
+    const user = await UserModel.findOne({
+      where: {
+        id: userId,
+      },
+    });
+
+    if (currentToken === null) {
+      res.status(403).json({
+        msg: "token tidak valid",
+      });
+    } else {
+      let userExpired = currentToken.expiredDate;
+      let expire = dayjs(Date());
+      let difference = expire.diff(userExpired, "hour");
+      if (difference !== 0) {
+        res.json({
+          status: "Fail",
+          msg: "Token has expired",
+        });
+      } else {
+        let hashPassword = await bcrypt.hash(newPassword, 10);
+        await UserModel.update(
+          { password: hashPassword },
+          {
+            where: {
+              id: user.id,
+            },
+          }
+        );
+        await ForgotPasswordModel.destroy({ where: { token: token } });
+        res.json({
+          status: "200 OK",
+          msg: "password berhasil di perbarui",
+        });
+      }
+    }
+  } catch (err) {
+    console.log("err", err);
+    res.status(403).json({
+      status: "error 403",
+      msg: "ada error",
       err: err,
     });
   }
 }
+
+
 
 module.exports = {
-  deleteUser,
-  getListUser,
-  createUser,
-  getDetailUserById,
-  getDetailUserByParams,
-  updateUser,
+  register,
+  login,
+  lupaPassword,
+  resetPassword,
+
 };

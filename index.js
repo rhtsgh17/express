@@ -7,15 +7,14 @@ const routers = require("./src/routers/routers");
 // const routers = require("./src/routers/routers2");
 // const authMiddleware = require("./src/middleware/authmiddleware")
 const notFound = require("./src/middleware/404");
-const errorHanding = require("./src/middleware/errorHanding");
+// const errorHanding = require("./src/middleware/errorHanding");
 const bodyParser = require("body-parser");
 const e = require("express");
 require("dotenv").config();
 const { sequelize } = require("./src/models");
 const port = process.env.PORT || 8082;
 const authMiddleware = require("./src/middleware/authmiddleware");
-const console1 = require("./src/middleware/console1");
-const console2 = require("./src/middleware/console2");
+
 const paginationMiddleware = require("./src/middleware/paginationmiddleware");
 
 
@@ -24,13 +23,11 @@ const paginationMiddleware = require("./src/middleware/paginationmiddleware");
 app.use(express.json());
 app.use(express.static("./src/storage/upload"));
 
-app.use(console2);
-app.use(console1);
-app.use(paginationMiddleware)
+
+app.use(paginationMiddleware)   
 app.use(routers);
 // app.use(routers2);
-app.use(notFound);
-app.use(errorHanding);
+
 app.use(bodyParser.json());
 // const { smk, cekBilangan } = require("./example");
 
