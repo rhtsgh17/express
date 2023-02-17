@@ -27,7 +27,7 @@ async function createEvaluasi(req, res) {
       msg: "Ada Kesalahan",
     });
   }
-  }
+  };
 
   async function createMulti(req, res) {
     try {
@@ -79,7 +79,7 @@ async function createEvaluasi(req, res) {
         message: "There is something wrong",
       });
     }
-  }
+  };
 
   async function updateMateri(req, res) {
     try {
@@ -125,7 +125,7 @@ async function createEvaluasi(req, res) {
         message: "There is something wrong",
       });
     }
-  }
+  };
 
   async function deleteMateriMulti(req, res) {
     try {
@@ -170,54 +170,181 @@ async function createEvaluasi(req, res) {
         msg: 'Something went wrong',
       });
     }
-  }
-  async function listMateri(req, res) {
+  };
+
+  // async function listMateri(req, res) {
+  //   try {
+  //     let { payload } = req.body;
+  //     let success = 0;
+  //     let fail = 0;
+  //     let jumlah = payload.length;
+  
+  //     if (req.role === 'Guru') {
+  //       await Promise.all(
+  //         payload.map(async (item, index) => {
+  //           try {
+  //             await MateriModel.create({
+  //               mataPelajaran: item.mataPelajaran,
+  //               kelas: item.kelas,
+  //               mater: item.materi,
+  //               userId: req.id,
+  //             });
+  
+  //             success = success + 1;
+  //           } catch (err) {
+  //             fail = fail + 1;
+  //           }
+  //         })
+  //       );
+  
+  //       res.status(201).json({
+  //         status: '201',
+  //         msg: `sukses menambahkan ${success} Materi dari total ${jumlah} Materi dan gagal ${fail} Materi`,
+  //       });
+  //     } else {
+  //       res.status(403).json({
+  //         status: 'error',
+  //         msg: 'Anda tidak memiliki akses karena role anda adalah siswa',
+  //       });
+  //     }
+  //   } catch (err) {
+  //     console.log(err)
+  //     res.status(403).json({
+  //       status: 'error',
+  //       msg: 'error creating',
+  //     });
+  //   };
+  // };
+
+  async function getMateriSiswa(req, res) {
     try {
-      let { payload } = req.body;
-      let success = 0;
-      let fail = 0;
-      let jumlah = payload.length;
+      let {
+        keyword,
+        page,
+        pageSize,
+        offset,
+        sortBy = 'id',
+        orderBy = 'ASC',
+      } = req.query;
   
-      if (req.role === 'Guru') {
-        await Promise.all(
-          payload.map(async (item, index) => {
-            try {
-              await MateriModel.create({
-                mataPelajaran: item.mataPelajaran,
-                kelas: item.kelas,
-                materi: item.materi,
+      const mater = await MateriModel.findAndCountAll({
+        attributes: {
+          exclude: ['createdAt', 'updatedAt'],
+        },
+        where: {
+          [Op.or]: [
+            {
+              mataPelajaran: {
+                [Op.substring]: keyword,
+              },
+            },
+            {
+              kelas: {
+                [Op.substring]: keyword,
+              },
+            },
+            {
+              mater: {
+                [Op.substring]: keyword,
+              },
+            },
+          ],
+        },
+  
+        limit: pageSize,
+        offset: offset,
+        order: [[sortBy, orderBy]],
+      });
+  
+      res.json({
+        status: 'success',
+        msg: 'Materi was successfully',
+        pagination: {
+          currentPage: page,
+          pageSize: pageSize,
+          totalData: mater.count,
+        },
+        data: mater.rows,
+      });
+    } catch (err) {
+      console.log(err)
+      res.status(403).json({
+        status: '404 Not Found',
+        msg: 'Ada Kesalahan',
+        err
+      });
+    }
+  }
+
+  async function getMateriGuru(req, res) {
+    try {
+      let {
+        materiMilik,
+        page,
+        pageSize,
+        offset,
+        sortBy = 'id',
+        orderBy = 'ASC',
+      } = req.query;
+  
+      if (materiMilik == 'saya') {
+        const mater = await MateriModel.findAndCountAll({
+          attributes: {
+            exclude: ['createdAt', 'updatedAt'],
+          },
+          where: {
+            [Op.or]: [
+              {
                 userId: req.id,
-              });
+              },
+            ],
+          },
   
-              success = success + 1;
-            } catch (err) {
-              fail = fail + 1;
-            }
-          })
-        );
+          limit: pageSize,
+          offset: offset,
+          order: [[sortBy, orderBy]],
+        });
   
-        res.status(201).json({
-          status: '201',
-          msg: `sukses menambahkan ${success} Materi dari total ${jumlah} Materi dan gagal ${fail} Materi`,
+        res.json({
+          status: 200,
+          msg: 'Materi was successfully',
+          pagination: {
+            currentPage: page,
+            pageSize: pageSize,
+            totalData: mater.count,
+          },
+          data: mater.rows,
         });
       } else {
-        res.status(403).json({
-          status: 'error',
-          msg: 'Anda tidak memiliki akses karena role anda adalah siswa',
+        const mater = await MateriModel.findAndCountAll();
+  
+        res.json({
+          status: 200,
+          msg: 'Materi was successfully',
+          pagination: {
+            currentPage: page,
+            pageSize: pageSize,
+            totalData: mater.count,
+          },
+          data: mater.rows,
         });
       }
     } catch (err) {
       res.status(403).json({
-        status: 'error',
-        msg: 'error creating',
+        status: '404 Not Found',
+        msg: 'Ada Kesalahan',
+        err
       });
     }
   }
+  
 
 module.exports = {
   createEvaluasi,
   createMulti,
   updateMateri,
   deleteMateriMulti,
-  listMateri
+  // listMateri,
+  getMateriSiswa,
+  getMateriGuru
 };
