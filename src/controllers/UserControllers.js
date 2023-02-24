@@ -1,8 +1,32 @@
 const UserModel = require("../models").user;
-
+const models = require("../models");
+const {Op} = require("sequelize")
+// const {checkQuery} = require('../utils')
 async function getListUser(req, res) {
   try {
-    const users = await UserModel.findAll();
+    const users = await UserModel.findAll({
+      include: [
+        {
+          model: models.identitas,
+          require: true,
+          as: "identitas",
+          attributes : ["golonganDarah", "alamat"]
+        },
+        {
+          model: models.nilai2,
+          require: true,
+          as: "nilai2",
+          attributes : ["mapel", "nilai"],
+          // where: {
+          //   ...Op(checkQuery(mapel) && {
+          //     mapel: {
+          //       [Op.substring]: mapel,
+          //     }
+          //   })
+          // }
+        },
+      ],
+    });
     res.json({
       status: "Success",
       msg: "Data User Di temukan",
@@ -46,7 +70,19 @@ async function getDetailUserById(req, res) {
   try {
     const { id } = req.params;
 
-    const user = await UserModel.findByPk(id);
+    const user = await UserModel.findOne(
+      {
+        include: [
+          {
+            model: models.identitas,
+            require: true,
+            as: "identitas",
+            attributes : ["golonganDarah", "alamat"]
+          },
+          
+        ],
+      }
+    );
 
     if (user === null) {
       res.status(404).json({
@@ -151,9 +187,9 @@ async function updateUser(req, res) {
   }
 }
 
-async function deleteUser(req,res) {
+async function deleteUser(req, res) {
   try {
-    const {id} = req.params;
+    const { id } = req.params;
 
     const user = await UserModel.findByPk(id);
 
@@ -165,9 +201,9 @@ async function deleteUser(req,res) {
     }
     await UserModel.destroy({
       where: {
-        id : id,
-      }
-    })
+        id: id,
+      },
+    });
     res.json({
       status: "Success",
       msg: "Delete User Berhasil",

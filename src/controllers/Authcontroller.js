@@ -231,5 +231,4 @@ module.exports = {
   login,
   lupaPassword,
   resetPassword,
-
 };

@@ -37,6 +37,7 @@ const {
   createArtikelMulti,
   deleteMulti,
 } = require("../controllers/artikelControllers");
+const { getListNilai } = require("../controllers/nilaiController");
 
 routers.post("/register", register);
 routers.post("/login", login);
@@ -73,6 +74,10 @@ routers.put(
 
 routers.get("/user/detail/:id", getDetailUserById);
 routers.get("/user/list/:email", getDetailUserByParams);
+
+// nilai
+
+routers.get('/nilai/list', getListNilai)
 
 routers.post(
   "/produk/create",

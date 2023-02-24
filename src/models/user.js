@@ -2,6 +2,7 @@
 const {
   Model
 } = require('sequelize');
+const nilai2 = require('./nilai2');
 module.exports = (sequelize, DataTypes) => {
   class user extends Model {
     /**
@@ -11,6 +12,14 @@ module.exports = (sequelize, DataTypes) => {
      */
     static associate(models) {
       // define association here
+      user.hasOne(models.identitas, {
+        as: "identitas",
+        foreignKey: "userId"
+      });
+    user.hasMany(models.nilai2, {
+      as: "nilai2",
+      foreignKey: "userId"
+    })
     }
   }
   user.init({
